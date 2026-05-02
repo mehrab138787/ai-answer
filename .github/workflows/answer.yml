@@ -1,0 +1,47 @@
+name: Get AI Answer
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'سوال خود را بنویسید'
+        required: true
+        type: string
+
+jobs:
+  get_answer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Call OpenRouter
+        id: call
+        run: |
+          RESPONSE=$(curl -s https://openrouter.ai/api/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -d "$(jq -n --arg p "${{ github.event.inputs.prompt }}" '{
+              model: "openrouter/free",
+              messages: [{role: "user", content: $p}]
+            }')")
+          
+          echo "$RESPONSE" > full.json
+          
+          ANSWER=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "خطا در دریافت پاسخ"')
+          
+          echo "answer=$ANSWER" >> $GITHUB_OUTPUT
+          
+      - name: Save Answer
+        run: |
+          echo "${{ steps.call.outputs.answer }}" > answer.txt
+          
+      - name: Commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add answer.txt
+          git diff --cached --quiet || git commit -m "new answer"
+          git push
