@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Call OpenRouter
+      - name: Call OpenRouter and save answer
         run: |
           curl -s -X POST https://openrouter.ai/api/v1/chat/completions \
             -H "Content-Type: application/json" \
@@ -27,13 +27,13 @@ jobs:
               "messages": [{"role": "user", "content": "'"${{ github.event.inputs.prompt }}"'"}]
             }' > full.json
           
-          # استخراج پاسخ با jq و ذخیره مستقیم در فایل
-          jq -r '.choices[0].message.content // "خطا: پاسخی دریافت نشد"' full.json > answer.txt
+          # استخراج پاسخ با jq و ذخیره مستقیم
+          jq -r '.choices[0].message.content // "خطا"' full.json | tee answer.txt
           
-      - name: Commit
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
           git add answer.txt full.json
-          git diff --staged --quiet || git commit -m "Update answer [skip ci]"
+          git commit -m "Update answer: ${{ github.event.inputs.prompt }}" || echo "No changes"
           git push
